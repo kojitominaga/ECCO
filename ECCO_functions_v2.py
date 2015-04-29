@@ -75,7 +75,7 @@ def BBOX_PathCode_Fix(lake_poly):
 
 
 
-def Calc_Coordinates(lon_2transform,lat_2transform):
+def Calc_Coordinates(lon_2transform,lat_2transform, lo_polo, la_polo):
     ''' Returns lat lon coordinates on a polar rotated sphere, from
     the input of the North Pole longitude, and North Pole latitude
     (that is the rotated position of the pole), and the lon and lat
@@ -84,11 +84,13 @@ def Calc_Coordinates(lon_2transform,lat_2transform):
     Note   - Currently this has the CORDEX EUR-11 pole shift
     hardcoded into the routine, as lo_polo = 198. (Cartesian Lontidue
     of N. Pole Shift), and la_polo = 39.25 (Latitude of N.Pole shift)
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
     '''
     lo = lon_2transform
     la = lat_2transform
-    lo_polo=198.                  # Lon and lat of the new position of the north pole
-    la_polo=39.25
+    # lo_polo=198.                  # Lon and lat of the new position of the north pole
+    # la_polo=39.25
     lon=lo*(pi/180)               # Transform into radians
     lat=la*(pi/180)
     lon_polo=lo_polo*pi/180       # Transformation into radians
@@ -106,7 +108,7 @@ def Calc_Coordinates(lon_2transform,lat_2transform):
     return lonr*180/pi, latr*180/pi
 
 
-def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=False):
+def catchment_timeseries(nc_path, outputprefix,lo_polo, la_polo, plots = False,rprt=False,sbar=False):
     '''
     Function to produce time series over catchment areas for a given input file of
     CORDEX data. Metadata and weights have been pre-calculated with the function
@@ -117,6 +119,8 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
     relative path of Catchments/Metadata/ and Catchments/Weights respectivley.
     These files can be obtained from http://www.files.benlaken.com/documents/
     and are Catchment_meta.csv and catchment_weights.h5.
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
     '''
     # Section for loading of data and opening of an output file
     if rprt:
@@ -171,7 +175,7 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
             wgs85_xy = Reproj_Catchment(lake_feature=lake_feature,
                                        chatty=False)                  # Convert to WGS system
             lake_cart = ECCO.Path_LkIsl_ShpFile([wgs85_xy])          # Create shape object
-            lake_rprj = ECCO.Path_Reproj(lake_cart,False)            # Reproj 2 Plr rotated
+            lake_rprj = ECCO.Path_Reproj(lake_cart,False, lo_polo, la_polo)            # Reproj 2 Plr rotated
                     
             if plots:     
                 ECCO.Preview_Lake(lake_cart)        
@@ -224,10 +228,12 @@ def catchment_timeseries(nc_path, outputprefix,plots = False,rprt=False,sbar=Fal
     return
 
 
-def Catchment_Weights_Meta(nc_path,sbar=False):
+def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, sbar=False):
     '''
     From catchment data, generate surface weights if requested, and meta
     data files also.
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
     '''
     # 1. LOAD Climate DATA
     clim_dat,rlat,rlon,timeCDX,metadata,txtfname = Read_CORDEX_V2(nc_path) # CORDEX NetCDF Read file
@@ -275,7 +281,7 @@ def Catchment_Weights_Meta(nc_path,sbar=False):
             wgs85_xy = Reproj_Catchment(lake_feature=lake_feature,
                                        chatty=False)                 # Convert to WGS system
             lake_cart = Path_LkIsl_ShpFile([wgs85_xy])          # Create shape object
-            lake_rprj = Path_Reproj(lake_cart,False)            # Reproj 2 Plr rotated
+            lake_rprj = Path_Reproj(lake_cart,False, lo_polo, la_polo)            # Reproj 2 Plr rotated
             sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_in=lake_rprj,Cdat=dat_loaded[0,:,:],
                                                          rlat=rlat_loaded,rlon=rlon_loaded,
                                                          off = 3, show = False) 
@@ -354,7 +360,7 @@ def EqArea(verts):
     return eqout
 
 
-def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275265,
+def Fast_v3(nc_path, lake_file, outputprefix, lo_polo, la_polo, lstart=0,lstop=275265,
                        hexlist=None,tt=None,plots = False,rprt=False,sbar=False,
                        rprt_loop=False):
     '''
@@ -364,6 +370,9 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275265,
                         These codes will be the list of lakes to be processed, with
                         (regardless of lstart / lstop settings). The list should be ascii values
                         in any order. E.g. hexlist = ['a2204','155980','d23e4a','7aa917']
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
+
     
      k.w.agrs:   
     
@@ -437,7 +446,7 @@ def Fast_v3(nc_path, lake_file, outputprefix,lstart=0,lstop=275265,
         lake_altitude=lake_feature['properties']['stf_mean']
         EB_id = lake_feature['properties']['EBhex']
         EB_id = EB_id[2:]                           # Strip off the hexcode label 0x
-        lake_rprj = Path_Reproj(lake_cart,False)    # Reproj. lake to CORDEX plr. rotated
+        lake_rprj = Path_Reproj(lake_cart,False, lo_polo, la_polo)    # Reproj. lake to CORDEX plr. rotated
         #if rprt_loop == True:
         #    print '\rCheck:',n,EB_id,lk_processed_inf.hex[EB_id],lk_processed_inf.npix[EB_id],
         if EB_id != lk_processed_inf.index[n]:      # Some handy error check
@@ -632,6 +641,8 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
 
     This code is in version 2 as it has now been alterd to use the shapefile
     lake data (rather than the GeoJSON data) which contains 127,000 lakes.
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
     '''
     if rprt_tme:
         a = clock.time()
@@ -652,7 +663,7 @@ def MT_Means_Over_Lake(nc_path, lake_file, lake_num, outputprefix,
         print 'Island aware Area(km^2)=', Area_Lake_and_Islands(lake_cart),         
         print ', No. xy lake boundary points=',len(lake_cart.vertices)
 
-    lake_rprj = Path_Reproj(lake_cart,False)             
+    lake_rprj = Path_Reproj(lake_cart,False, lo_polo, la_polo)             
     sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
                                             rlon,off = 3, show = False) 
     tcheck1= clock.time()
@@ -729,6 +740,8 @@ def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
     This program Generates metadata files used to speed up the final runs.
     This was forthe lakes (not catchments), and created a metadata text
     file, to be used as a mini-database in pandas.
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
     '''
     estart = clock.time()
     if rprt_tme == True:
@@ -749,7 +762,7 @@ def MT_Gen_SWeights(nc_path, lake_file, lake_num, outputprefix, threeD=True,
     if rprt_tme == True:
         b = clock.time()    
 
-    lake_rprj = Path_Reproj(lake_cart,False)
+    lake_rprj = Path_Reproj(lake_cart,False, lo_polo, la_polo)
 
     sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
                                             rlon,off = 3, show = False) 
@@ -964,7 +977,7 @@ def Path_Lake_and_Islands(num,lake_path):
     path_wisl = Path(lk_stack, lk_codes)
     return path_wisl
 
-def Path_Reproj(path_in,INV):
+def Path_Reproj(path_in,INV, lo_polo, la_polo):
     '''This program reprojects a path object from cartesian lat lon 
     to Spherical reprojected coordinates.
     Note, this could easily be changed in the future to use diffrent
@@ -979,13 +992,15 @@ def Path_Reproj(path_in,INV):
                  reprojection. If it
                  is true, however, the tranformation goes in reverse.
                  Changing reprojected data back to cartesian data.
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
+
     Output   -   Transformed Path object. Note the codes are intact.        
     '''
     verts =[] ; codes=[] 
     pth_ln = int(len(path_in.vertices) - 1) 
     for i,n in enumerate(path_in.vertices):
         if (INV == False):
-            rx,ry = Calc_Coordinates(n[0],n[1])
+            rx,ry = Calc_Coordinates(n[0],n[1], lo_polo, la_polo)
         if (INV == True):
             print 'Still must add inverse projection functionaility!'
         tmp_rverts = [rx,ry]
@@ -1551,13 +1566,15 @@ def Weighted_Mean(weight_mask,sub_clim,chatty):
     return val_out
 
 
-def Weight_Speedup(nc_path, lake_file, lake_num, outputprefix,
+def Weight_Speedup(nc_path, lake_file, lake_num, outputprefix, lo_polo, la_polo, 
                        tt=None,plots = False,rprt_tme=False):
     '''
     Purpose             
     This program generates the weighted mean files for specified lakes
     (the slow ones), to be read back in when processing later for a 
     big speed boost! This only needs to be run one time. 
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
     '''
     a = clock.time()
     num = lake_num
@@ -1577,7 +1594,7 @@ def Weight_Speedup(nc_path, lake_file, lake_num, outputprefix,
         print 'Island aware Area(km^2)=', Area_Lake_and_Islands(lake_cart),         
         print ', No. xy lake boundary points=',len(lake_cart.vertices)
 
-    lake_rprj = Path_Reproj(lake_cart,False)             
+    lake_rprj = Path_Reproj(lake_cart,False, lo_polo, la_polo)             
     sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_rprj,clim_dat[0,:,:],rlat,
                                             rlon,off = 3, show = False) 
     tcheck1= clock.time()
@@ -1704,7 +1721,7 @@ def Write_HDF_weights(fw,EB_id,weights):
 #    PRIMARY FUNCTIONS ALL COMBINED INTO A SINGLE FUNCTION BELOW
 #             READY TO BE RUN USING MUTLITHREADDING MODULE
 #
-def OLD_MT_Means_Over_Lake(lake_num):
+def OLD_MT_Means_Over_Lake(lake_num, lo_polo, la_polo):
     ''' This function combines all the routines of the function file,
     to create time series (or images) of the individual lakes, with 
     data overlain. It outputs to a path created within the function,
@@ -1713,6 +1730,8 @@ def OLD_MT_Means_Over_Lake(lake_num):
     version of the data. Takes about 7min per lake (for one EUR-11
     CORDEX file), and produces a 14kb text file (5kb in gz format):
     speed is on an approx 3GHz machine.
+
+    NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
 
     WARNING - THIS VERSION OF THE CODE IS DEPRECIATED. PLEASE USE 
     MT_Means_Over_Lake  (which appears at the top of this file).
@@ -1728,7 +1747,7 @@ def OLD_MT_Means_Over_Lake(lake_num):
     
     # Create Lake shapes and subset the CORDEX data
     lake_cart= Path_Make(lake_path[num][0][0][:])
-    lake_rprj = Path_Reproj(lake_cart,False)             
+    lake_rprj = Path_Reproj(lake_cart,False, lo_polo, la_polo)             
     sub_clim,sub_rlat,sub_rlon= TrimToLake(lake_rprj,\
         clim_dat[0,:,:],rlat,rlon,off = 3, show = False)
     weight_mask = Pixel_Weights(lake_rprj,sub_clim,sub_rlat,sub_rlon)
