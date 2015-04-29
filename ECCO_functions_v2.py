@@ -108,7 +108,7 @@ def Calc_Coordinates(lon_2transform,lat_2transform, lo_polo, la_polo):
     return lonr*180/pi, latr*180/pi
 
 
-def catchment_timeseries(nc_path, outputprefix,lo_polo, la_polo, plots = False,rprt=False,sbar=False):
+def catchment_timeseries(nc_path, outputprefix, metacsv, lake_file, dirname, lo_polo, la_polo, plots = False,rprt=False,sbar=False):
     '''
     Function to produce time series over catchment areas for a given input file of
     CORDEX data. Metadata and weights have been pre-calculated with the function
@@ -145,10 +145,11 @@ def catchment_timeseries(nc_path, outputprefix,lo_polo, la_polo, plots = False,r
     # Metadata contains EB_id(index), area, npix, xpix, ypix
     # Where the number of pixels is 1, we can use the xpix, ypix directly as the time series
     # Where the npix is larger than 1, we can call the precalculated array of weights.
-    catch_meta = pd.read_csv('Catchments/Metadata/Catchment_meta.csv') # Metadata
+    # metacsv = 'Catchments/Metadata/Catchment_meta.csv'
+    catch_meta = pd.read_csv(metacsv) # Metadata
     catch_meta = catch_meta.set_index('EB_id')              # Hex code is used as id
     
-    lake_file='Catchments/ecco_biwa_catchments_part_1.shp'  # just for testing...
+    # lake_file='Catchments/ecco_biwa_catchments_part_1.shp'  # just for testing...
     ShapeData = osgeo.ogr.Open(lake_file)                   # Connection to catchment shapes
     TheLayer = ShapeData.GetLayer(iLayer=0)
         
@@ -160,7 +161,7 @@ def catchment_timeseries(nc_path, outputprefix,lo_polo, la_polo, plots = False,r
     
     # For the three catchment files - loop over each file and do every feature element
     catchflist = []                               # Gather precalculated surface weights 
-    for fnm in glob.glob("Catchments/*.shp"):     # N.b. You can precalculate as many as you
+    for fnm in glob.glob("%s/*.shp" % dirname):     # N.b. You can precalculate as many as you
         catchflist.append(fnm)
         #print fnm
         ShapeData = osgeo.ogr.Open(fnm)           # Make a link to Lake Shape Files
@@ -228,7 +229,7 @@ def catchment_timeseries(nc_path, outputprefix,lo_polo, la_polo, plots = False,r
     return
 
 
-def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, sbar=False):
+def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, FILE, metacsv, dirname, sbar=False):
     '''
     From catchment data, generate surface weights if requested, and meta
     data files also.
@@ -243,8 +244,8 @@ def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, sbar=False):
     rlat_loaded = rlat[:]
     rlon_loaded = rlon[:]
     # Create a hdf5 file of catchment weights
-    thefilename = 'catchment_weights'
-    FILE= 'Catchments/Weights/' + thefilename +'.h5'                # Set up HDF5 file output
+    # thefilename = 'catchment_weights'
+    # FILE= 'Catchments/Weights/' + thefilename +'.h5'                # Set up HDF5 file output
     if os.path.isfile(FILE):
         print 'HDF5 File already exists. Leaving loop so you dont clobber it by accident.'
         print 'To run this function, decide manually if you want to remove it or not.'
@@ -256,7 +257,7 @@ def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, sbar=False):
         fweights = h5py.File(FILE,'w')
     
     # set and write header info for the metadata file
-    metacsv = 'Catchments/Metadata/Catchment_meta.csv'
+    # metacsv = 'Catchments/Metadata/Catchment_meta.csv'
     if os.path.isfile(metacsv) == True:
         print 'Earlier metadata exists. Erasing it...'
         os.remove(metacsv)
@@ -268,7 +269,7 @@ def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, sbar=False):
     
     # For the three catchment files - loop over each file and do every feature element...
     catchflist = []                                     # Gather precalculated surface weights 
-    for fnm in glob.glob("Catchments/*.shp"):           # N.b. You can precalculate as many as you
+    for fnm in glob.glob("%s/*.shp" % dirname):           # N.b. You can precalculate as many as you
         catchflist.append(fnm)
         ShapeData = osgeo.ogr.Open(fnm)                  # Make a link to Lake Shape Files
         TheLayer = ShapeData.GetLayer(iLayer=0)
@@ -587,7 +588,7 @@ def Gen_FName_Head(long_name):
         fnm_head = 'TAS_'
     return fnm_head
 
-def get_catchweight(tmp_ebid):
+def get_catchweight(tmp_ebid, FILE):
     '''
     From the hex EB_id (KID) value of a catchment covering more than one
     pixel, fetch the np array of the pre-calculated weight from the hdf5 
@@ -597,7 +598,8 @@ def get_catchweight(tmp_ebid):
     Requies h5py module.
     Assumes relative path.
     '''
-    with h5py.File('Catchments/Weights/catchment_weights.h5','r') as fp:
+    # FILE = 'Catchments/Weights/catchment_weights.h5'
+    with h5py.File(FILE,'r') as fp:
         tmparray = fp[tmp_ebid]
         tmparray = tmparray[:,:]
     return tmparray
