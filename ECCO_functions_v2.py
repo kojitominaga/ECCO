@@ -229,7 +229,7 @@ def catchment_timeseries(nc_path, outputprefix, metacsv, lake_file, dirname, lo_
     return
 
 
-def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, FILE, metacsv, dirname, sbar=False):
+def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, FILE, metacsv, dirname, sbar=False, cordex=True):
     '''
     From catchment data, generate surface weights if requested, and meta
     data files also.
@@ -237,8 +237,12 @@ def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, FILE, metacsv, dirname, sb
     NEW by KT (2015-04-29). Now new arguments lo_polo and la_polo introduced
     '''
     # 1. LOAD Climate DATA
-    clim_dat,rlat,rlon,timeCDX,metadata,txtfname = Read_CORDEX_V2(nc_path) # CORDEX NetCDF Read file
-    vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata        # Metadata of fname string
+    if cordex:
+        clim_dat,rlat,rlon,timeCDX,metadata,txtfname = Read_CORDEX_V2(nc_path) # CORDEX NetCDF Read file
+        vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata        # Metadata of fname string
+    else: # it is NORA10
+        clim_dat, rlat, rlon, time, metadata = Read_NORA10(nc_path)
+        m0, m1, m2, vname, m3 = metadata
     var_type = clim_dat.standard_name                                      # What kind of CORDEX data?
     dat_loaded = clim_dat[:,:,:]                                           # Load CORDEX data into RAM
     rlat_loaded = rlat[:]
@@ -275,12 +279,18 @@ def Catchment_Weights_Meta(nc_path, lo_polo, la_polo, FILE, metacsv, dirname, sb
         TheLayer = ShapeData.GetLayer(iLayer=0)
         dolakes=range(TheLayer.GetFeatureCount())   # Create a range to loop over lake features   
         for n in dolakes:
+            if n % 100 == 0:
+                print '... Working on %sth of %s polygons ' % (n, len(dolakes))
             tlist = []
             feature1 = TheLayer.GetFeature(n)                        # Get catchtment data
             lake_feature = feature1.ExportToJson(as_object=True)     # Convert to JSON
-            EB_id = hex(int(lake_feature['properties']['ebint']))[2:]# Extract id number
-            wgs85_xy = Reproj_Catchment(lake_feature=lake_feature,
-                                       chatty=False)                 # Convert to WGS system
+            if cordex:
+                EB_id = hex(int(lake_feature['properties']['ebint']))[2:]# Extract id number
+                wgs85_xy = Reproj_Catchment(lake_feature=lake_feature,
+                                            chatty=False)                 # Convert to WGS system
+            else: 
+                EB_id = hex(int(lake_feature['properties']['EBint']))[2:]# Extract id number
+                wgs85_xy = lake_feature['geometry']['coordinates'][0]
             lake_cart = Path_LkIsl_ShpFile([wgs85_xy])          # Create shape object
             lake_rprj = Path_Reproj(lake_cart,False, lo_polo, la_polo)            # Reproj 2 Plr rotated
             sub_clim,sub_rlat,sub_rlon = TrimToLake(lake_in=lake_rprj,Cdat=dat_loaded[0,:,:],
@@ -1236,6 +1246,36 @@ def Read_CORDEX_V2(nc_path):
     rlon = nc.variables['rlon']
     time = nc.variables['time']
     return clim_dat,rlat,rlon,time,metadata,txtfname
+
+def Read_NORA10(nc_path):
+    ''' Koji modified from READ_CORDEX_V2()
+    
+    INPUT
+    The path to the netcdf file only
+
+    OUTPUT
+    clim_dat : the actual climate data from the file
+    rlat / rlon : rotated lat/lon coordinate dimensions
+    time : time dimension
+    metadata : a list of metadata extracted from the filename
+    drange : the daterange of the file (extracted from filename)
+    txtfname : the filename of the output text file (made of variable name
+                and date range).
+    '''
+    nc_fname = os.path.basename(nc_path)
+    metadata = os.path.splitext(nc_fname)[0].split('_')
+    m0, m1, m2, vname, m3 = metadata
+    # vname, m1, m2, dexp, m3, m4, m5, m6, drange_orignial = metadata
+    # drange = '_'.join([dexp, drange_orignial])
+    # txtfname = '_'.join([vname, drange])
+    nc = Dataset(nc_path)                 # Read the NetCDF Data 
+    clim_dat = nc.variables[vname]
+    rlat = nc.variables['rlat']
+    rlon = nc.variables['rlon']
+    time = nc.variables['time']
+    return clim_dat,rlat,rlon,time,metadata # ,txtfname
+
+
 
 def Read_Lakes(file_in):
     '''Purpose - Use Json module to read GeoJSON Lake data
